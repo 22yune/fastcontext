@@ -4,6 +4,7 @@ from pathlib import Path
 import aiofiles
 
 from .tool import Tool
+from .path_utils import normalize_workspace_path, ensure_within_workspace
 
 MAX_LINE = 2000
 MAX_LINE_LENGTH = 2000
@@ -33,17 +34,18 @@ class ReadTool(Tool):
 
     async def call(self, parameters: str, **kwargs) -> str:
         params: dict = json.loads(parameters)
-        file_path = params.get("path")
+        cwd = kwargs.get("cwd", Path.cwd().as_posix())
+        file_path = normalize_workspace_path(params.get("path"), cwd)
         offset = params.get("offset", 1)
         limit = params.get("limit")
 
         if not file_path:
             return "<system-reminder>Error: file path is required</system-reminder>"
 
-        cwd = kwargs.get("cwd", Path.cwd().as_posix())
-        if not Path(file_path).resolve().is_relative_to(Path(cwd).resolve()):
+        ok, normalized = ensure_within_workspace(file_path, cwd)
+        if not ok:
             return f"<system-reminder>Permission error: `{file_path}` is not within the working directory `{cwd}`</system-reminder>"
-
+        file_path = normalized
         if not Path(file_path).exists():
             return f"<system-reminder>Error: {file_path} does not exist</system-reminder>"
 

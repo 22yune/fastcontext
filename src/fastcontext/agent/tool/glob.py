@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 from .tool import Tool
-
+from .path_utils import normalize_workspace_path, normalize_glob_pattern, ensure_within_workspace
 
 def run(directory: str, pattern: str, cwd: str) -> str:
     command = ["rg", "--files", directory, "--glob", pattern]
@@ -39,14 +39,18 @@ class GlobTool(Tool):
     async def call(self, parameters: str, **kwargs) -> str:
         cwd = kwargs.get("cwd", Path.cwd().as_posix())
         params: dict = json.loads(parameters)
-        directory = params.get("directory", cwd)
-        pattern = params.get("pattern")
+        # Support both official "directory" and model hallucinated "path".
+        directory = params.get("directory") or params.get("path") or cwd
+        directory = normalize_workspace_path(directory, cwd)
+        pattern = normalize_glob_pattern(params.get("pattern"), cwd)
 
         p = Path(directory)
         if not p.is_dir():
             return f"<system-reminder>Error: directory `{directory}` does not exist or is not a directory.</system-reminder>"
-        if not p.resolve().is_relative_to(Path(cwd).resolve()):
+        ok, normalized = ensure_within_workspace(directory, cwd)
+        if not ok:
             return f"<system-reminder>Permission error: `{directory}` is not within the working directory `{cwd}`</system-reminder>"
+        directory = normalized
 
         output = run(directory, pattern, cwd=cwd)
 

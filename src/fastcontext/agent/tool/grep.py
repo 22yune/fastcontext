@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from .tool import Tool
+from .path_utils import normalize_workspace_path, normalize_glob_pattern, ensure_within_workspace
 
 
 class GrepTool(Tool):
@@ -72,8 +73,10 @@ class GrepTool(Tool):
         cwd = kwargs.get("cwd", Path.cwd().as_posix())
         # ripgrep parameters
         pattern = params.get("pattern")
-        path = params.get("path", cwd)
-        glob = params.get("glob")
+        # path = params.get("path", cwd)
+        # glob = params.get("glob")
+        path = normalize_workspace_path(params.get("path", cwd), cwd)
+        glob = normalize_glob_pattern(params.get("glob"), cwd)
         output_mode = params.get("output_mode")
         before_context = params.get("-B")
         after_context = params.get("-A")
@@ -84,8 +87,10 @@ class GrepTool(Tool):
         head_limit = params.get("head_limit")
         multiline = params.get("multiline")
 
-        if not Path(path).resolve().is_relative_to(Path(cwd).resolve()):
+        ok, normalized = ensure_within_workspace(path, cwd)
+        if not ok:
             return f"<system-reminder>Permission error: `{path}` is not within the working directory `{cwd}`</system-reminder>"
+        path = normalized
 
         output = run_rg(
             self._rg_path,
