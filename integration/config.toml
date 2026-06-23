@@ -1,0 +1,11 @@
+
+[mcp_servers.fastcontext]
+command = "/bin/bash"
+args = [
+  "-lc",
+  "cd $HOME/.local/share/fc-find-mcp && exec uv run python server.py"
+]
+startup_timeout_sec = 20
+tool_timeout_sec = 180
+enabled = true
+default_tools_approval_mode = "auto"

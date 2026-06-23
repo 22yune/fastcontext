@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MAX_TURNS="${FASTCONTEXT_MAX_TURNS:-10}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -m|--max-turns)
+      MAX_TURNS="$2"
+      shift 2
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+QUERY="${*:-}"
+if [ -z "$QUERY" ]; then
+  echo "Usage: fc-find [-m|--max-turns N] \"your code search question\""
+  exit 1
+fi
+
+export BASE_URL="${FASTCONTEXT_BASE_URL:-http://127.0.0.1:8000/v1}"
+export MODEL="${FASTCONTEXT_MODEL:-fastcontext}"
+export API_KEY="${FASTCONTEXT_API_KEY:-EMPTY}"
+
+mkdir -p .fastcontext
+TRAJ=".fastcontext/trajectory.jsonl"
+
+OUT="$(fastcontext \
+  --query "$QUERY" \
+  --max-turns "$MAX_TURNS" \
+  --traj "$TRAJ")"
+
+python3 -c '
+import os
+import re
+import sys
+
+text = sys.stdin.read()
+cwd = os.getcwd().rstrip("/") + "/"
+
+matches = re.findall(r"<final_answer>\s*(.*?)\s*</final_answer>", text, flags=re.S)
+
+def to_relative_line(line: str) -> str:
+    line = line.strip()
+    if not line:
+        return line
+
+    # 只处理每行开头的 path，保留 :1-20 和后面的说明
+    m = re.match(r"^(?P<path>\S+?)(?P<suffix>:\d+(?:-\d+)?.*)?$", line)
+    if not m:
+        return line
+
+    path = m.group("path")
+    suffix = m.group("suffix") or ""
+
+    # /Users/.../wyoa/RuoYi-Vue3/a.js -> RuoYi-Vue3/a.js
+    if path.startswith(cwd):
+        path = path[len(cwd):]
+    # /RuoYi-Vue3/a.js -> RuoYi-Vue3/a.js
+    elif path.startswith("/"):
+        path = path.lstrip("/")
+
+    return path + suffix
+
+if matches:
+    body = matches[-1].strip()
+    lines = [to_relative_line(line) for line in body.splitlines() if line.strip()]
+    print("<final_answer>")
+    print("\n".join(lines))
+    print("</final_answer>")
+else:
+    print(text)
+' <<<"$OUT"
