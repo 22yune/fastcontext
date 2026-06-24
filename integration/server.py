@@ -24,6 +24,15 @@ def find_git_root(path: Path) -> Path:
 
     return path.resolve()
 
+def resolve_repo_path(repo_path: str) -> Path:
+    if repo_path.strip():
+        return Path(repo_path).expanduser().resolve()
+
+    claude_project_dir = os.environ.get("CLAUDE_PROJECT_DIR")
+    if claude_project_dir:
+        return Path(claude_project_dir).expanduser().resolve()
+
+    return find_git_root(Path.cwd())
 
 @mcp.tool()
 def fastcontext_search(
@@ -54,10 +63,7 @@ def fastcontext_search(
     if not query.strip():
         return "ERROR: query is empty."
 
-    if repo_path.strip():
-        repo = Path(repo_path).expanduser().resolve()
-    else:
-        repo = find_git_root(Path.cwd())
+    repo = resolve_repo_path(repo_path)
 
     if not repo.exists() or not repo.is_dir():
         return f"ERROR: repo_path does not exist or is not a directory: {repo}"
