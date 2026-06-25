@@ -53,7 +53,7 @@ def load_system_prompt(work_dir: str) -> str:
 def parse_citations(text: str) -> list:
     final_answer = re.search(r"<final_answer>(.*?)</final_answer>", text, re.DOTALL)
     if final_answer is None:
-        return {"final_answer": text.strip(), "citations": []}
+        return []
 
     entries = final_answer.group(1).strip().splitlines()
 
@@ -84,14 +84,25 @@ def parse_citations(text: str) -> list:
     return citations
 
 
-def format_citations(citations: list, validate: bool = True) -> str:
+def _resolve_path(file_path: str, work_dir: str | None) -> str:
+    """Convert a relative path to an absolute path using work_dir."""
+    p = Path(file_path)
+    if p.is_absolute():
+        return p.as_posix()
+    if work_dir:
+        return (Path(work_dir) / file_path).as_posix()
+    return file_path
+
+
+def format_citations(citations: list, work_dir: str | None = None, validate: bool = True) -> str:
 
     if validate:
         validated_citations = []
         for c in citations:
-            # if not file or not existing, skip this citation
-            if not os.path.isfile(c["path"]):
+            absolute_path = _resolve_path(c["path"], work_dir)
+            if not os.path.isfile(absolute_path):
                 continue
+            c["path"] = absolute_path
             validated_citations.append(c)
 
         citations = validated_citations
@@ -105,9 +116,13 @@ def format_citations(citations: list, validate: bool = True) -> str:
     return "<final_answer>\n" + "\n".join(formatted) + "\n</final_answer>"
 
 
-def get_final_answer(text: str) -> str:
+def get_final_answer(text: str, work_dir: str | None = None) -> str:
+    final_answer_match = re.search(r"<final_answer>(.*?)</final_answer>", text, re.DOTALL)
+    if final_answer_match is None:
+        return text.strip()
+
     citations = parse_citations(text)
-    final_answer = format_citations(citations)
+    final_answer = format_citations(citations, work_dir=work_dir)
     return final_answer
 
 

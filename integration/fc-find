@@ -67,10 +67,11 @@ def to_relative_line(line: str) -> str:
 
 if matches:
     body = matches[-1].strip()
-    lines = [to_relative_line(line) for line in body.splitlines() if line.strip()]
-    print("<final_answer>")
-    print("\n".join(lines))
-    print("</final_answer>")
+    print(body)
+    # lines = [to_relative_line(line) for line in body.splitlines() if line.strip()]
+    # print("<final_answer>")
+    # print("\n".join(lines))
+    # print("</final_answer>")
 else:
     print(text)
 ' <<<"$OUT"

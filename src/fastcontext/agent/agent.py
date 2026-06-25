@@ -72,7 +72,7 @@ class Agent:
                 await self.context.add(tools_result_msg)
             else:
                 if citation:
-                    return get_final_answer(step_msg.content)
+                    return get_final_answer(step_msg.content, work_dir=self.work_dir)
                 return step_msg.content
 
     async def run(self, prompt: str, max_turns: int = 4, verbose: bool = False, citation: bool = False) -> str:
